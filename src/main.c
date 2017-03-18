@@ -46,7 +46,7 @@ void main(){
 
 void sendLine(){
 	HAL_StatusTypeDef status;
-	uint8_t sel = line%2 == 0;
+	uint8_t sel = line%5 != 4;
 	LED_Off(LED_ALL);
 	LED_On(sel?LED_O:LED_G);
 
@@ -72,37 +72,33 @@ void spi_init(){
 	gpio.Speed = GPIO_SPEED_FAST;
 	HAL_GPIO_Init(GPIOA, &gpio);
 
-	__HAL_RCC_DMA1_CLK_ENABLE();
-	dmaspitx.Init.Channel = DMA_CHANNEL_0;
-	dmaspitx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-	dmaspitx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-	dmaspitx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-	dmaspitx.Init.MemBurst = DMA_MBURST_SINGLE;
-	dmaspitx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-	dmaspitx.Init.MemInc = DMA_MINC_ENABLE;
-	dmaspitx.Init.Mode = DMA_PFCTRL;
-	dmaspitx.Init.PeriphBurst = DMA_PBURST_INC4;
-	dmaspitx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-	dmaspitx.Init.PeriphInc = DMA_PINC_DISABLE;
-	dmaspitx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
-	dmaspitx.Instance = DMA1_Stream0;
-	HAL_DMA_Init(&dmaspitx);
-	NVIC_EnableIRQ(DMA1_Stream0_IRQn);
-	NVIC_SetPriority(DMA1_Stream0_IRQn, 0);
-
 	__HAL_RCC_SPI1_CLK_ENABLE();
-	print_spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
-	print_spi.Init.CLKPhase = SPI_PHASE_1EDGE;
-	print_spi.Init.CLKPolarity = SPI_POLARITY_HIGH;
-	print_spi.Init.DataSize = SPI_DATASIZE_8BIT;
-	print_spi.Init.Direction = SPI_DIRECTION_2LINES;
-	print_spi.Init.FirstBit = SPI_FIRSTBIT_MSB;
-	print_spi.Init.Mode = SPI_MODE_MASTER;
-	print_spi.Init.NSS = SPI_NSS_SOFT;
-	print_spi.Init.TIMode = SPI_TIMODE_DISABLED;
 	print_spi.Instance = SPI1;
-	print_spi.hdmatx = &dmaspitx;
+	print_spi.Init.Mode = SPI_MODE_MASTER;
+	print_spi.Init.Direction = SPI_DIRECTION_2LINES;
+	print_spi.Init.DataSize = SPI_DATASIZE_8BIT;
+	print_spi.Init.CLKPolarity = SPI_POLARITY_HIGH;
+	print_spi.Init.CLKPhase = SPI_PHASE_1EDGE;
+	print_spi.Init.NSS = SPI_NSS_SOFT;
+	print_spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+	print_spi.Init.FirstBit = SPI_FIRSTBIT_MSB;
+	print_spi.Init.TIMode = SPI_TIMODE_DISABLED;
+	print_spi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
 	HAL_SPI_Init(&print_spi);
+
+	__HAL_RCC_DMA2_CLK_ENABLE();
+	dmaspitx.Init.Channel = DMA_CHANNEL_3;
+	dmaspitx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+	dmaspitx.Init.PeriphInc = DMA_PINC_DISABLE;
+	dmaspitx.Init.MemInc = DMA_MINC_ENABLE;
+	dmaspitx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+	dmaspitx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+	dmaspitx.Init.Mode = DMA_NORMAL;
+	dmaspitx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+	dmaspitx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+	dmaspitx.Instance = DMA2_Stream3;
+	HAL_DMA_Init(&dmaspitx);
+	//NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){

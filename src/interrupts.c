@@ -19,6 +19,6 @@ void TIM2_IRQHandler(void){
 	HAL_TIM_IRQHandler(&tim);
 }
 
-void DMA1_Stream0_IRQHandler(){
+void DMA2_Stream3_IRQHandler(){
 	HAL_DMA_IRQHandler(&dmaspitx);
 }
