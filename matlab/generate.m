@@ -1,5 +1,5 @@
 % This script need array called 'image'
-imsize = [80,80];
+imsize = [320,320];
 file = '..\include\img.h';
 
 assert(mod(imsize(1), 8)==0)
@@ -18,10 +18,8 @@ for indx = 1:size(img,2)
     line = img(:, indx);
     for indy = 1:8:length(line)
         part = line(indy:indy+7);
-        part = part .* [128; 64; 32; 16; 8; 4; 2; 1];
-        part = sum(part);
         ind = (indx-1)*size(img,1)/8 + ((indy-1)/8) +1;
-        data(ind) = sum(part);
+        data(ind) = bin2dec(char(part'+'0'));
     end
 end
 

@@ -9,18 +9,15 @@ void sendLine();
 void initLineRate();
 void initUsart();
 
-uint16_t line = 0;
-
 DMA_HandleTypeDef dmaspitx;
 SPI_HandleTypeDef print_spi;
 TIM_HandleTypeDef tim;
 USART_HandleTypeDef pc_usart;
-uint32_t i=0;
 
-volatile uint8_t start=0;
+volatile uint16_t scan_line = 0;
 
 void main(){
-	printf("Projektor Boot\r\n");
+	printf("Projector Boot\r\n");
 	printf("SystemCoreClock: %lu Hz\r\n", SystemCoreClock);
 
 	irq_init();
@@ -31,35 +28,22 @@ void main(){
 	initLineRate();
 
 	printf("Ready\r\n");
-	uint16_t last=0;
 	while (1){
-		uint16_t diff = tim.Instance->CNT - last;
-		last = tim.Instance->CNT;
-		//printf("Time: %u cnt, %c\r\n", diff, (GPIOB->IDR & GPIO_PIN_11)?'H':'L');
-		if(start){
-			start = 0;
-			sendLine();
-		}
+		LED_Toggle(LED_G);
 		HAL_Delay(100);
 	}
 }
 
 void sendLine(){
 	HAL_StatusTypeDef status;
-	uint8_t sel = line%5 != 4;
-	LED_Off(LED_ALL);
-	LED_On(sel?LED_O:LED_G);
+	uint8_t *data = (uint8_t *) img+(scan_line*Y_SIZEB);
 
-	uint8_t *data = (uint8_t *) img+(line*Y_SIZEB);
+	LED_On(LED_O);
+	status = HAL_SPI_Transmit_DMA(&print_spi, data, Y_SIZEB);
+	LED_Off(LED_O);
+	printf("DMA scan over line %d done. %s, %d\r\n", scan_line, (status==HAL_OK)?"OK":"OTHER", status);
 
-	if(sel){
-		status = HAL_SPI_Transmit(&print_spi, data, Y_SIZEB, 1000);
-		printf("Direct scan over line %d done. %s, %d\r\n", line, (status==HAL_OK)?"OK":"OTHER", status);
-	}else{
-		status = HAL_SPI_Transmit_DMA(&print_spi, data, Y_SIZEB);
-		printf("DMA scan over line %d done. %s, %d\r\n", line, (status==HAL_OK)?"OK":"OTHER", status);
-	}
-	line = (line+1)%X_SIZE;
+	scan_line = (scan_line+1)%X_SIZE;
 }
 
 void spi_init(){
@@ -98,12 +82,15 @@ void spi_init(){
 	dmaspitx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
 	dmaspitx.Instance = DMA2_Stream3;
 	HAL_DMA_Init(&dmaspitx);
-	//NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+	__HAL_LINKDMA(&print_spi,hdmatx,dmaspitx);
+
+	NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+	NVIC_SetPriority(DMA2_Stream3_IRQn, 3);
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	trace_printf("IRQ on %d\n", GPIO_Pin);
-	start = 1;
+void HAL_GPIO_EXTI_Callback(uint16_t pin){
+	printf("IRQ on %d at %lu ms\r\n", POSITION_VAL(pin), HAL_GetTick());
+	if(pin==GPIO_PIN_0) sendLine();
 }
 
 
@@ -176,11 +163,4 @@ void irq_init(){
 	HAL_GPIO_Init(GPIOA, &gpio);
 	NVIC_SetPriority(EXTI0_IRQn, 0);
 	NVIC_EnableIRQ(EXTI0_IRQn);
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	static int i=0;
-    //printf("TIM BASE %d\r\n", i++);
-    LED_Toggle(LED_B);
 }
