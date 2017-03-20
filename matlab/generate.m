@@ -1,5 +1,5 @@
 % This script need array called 'image'
-imsize = [320,320];
+imsize = [480,480];
 file = '..\include\img.h';
 
 assert(mod(imsize(1), 8)==0)

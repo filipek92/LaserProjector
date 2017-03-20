@@ -9,6 +9,7 @@
 
 extern SPI_HandleTypeDef print_spi;
 extern TIM_HandleTypeDef tim;
+extern TIM_HandleTypeDef tim_spi_clock;
 extern USART_HandleTypeDef pc_usart;
 extern DMA_HandleTypeDef dmaspitx;
 
