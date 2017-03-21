@@ -75,30 +75,37 @@ void initSPIClock(){
 }
 
 void initUsart(){
-	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
 	GPIO_InitTypeDef gpio;
-	gpio.Alternate = GPIO_AF7_USART2;
+	gpio.Alternate = GPIO_AF8_UART4;
 	gpio.Pull = GPIO_NOPULL;
 	gpio.Speed = GPIO_SPEED_FAST;
+	gpio.Pin = GPIO_PIN_10; // TX
 	gpio.Mode = GPIO_MODE_AF_PP;
-	gpio.Pin = GPIO_PIN_2;
-	HAL_GPIO_Init(GPIOA, &gpio);
+	HAL_GPIO_Init(GPIOC, &gpio);
 
-	gpio.Mode = GPIO_MODE_INPUT;
-	gpio.Pin = GPIO_PIN_3;
-	HAL_GPIO_Init(GPIOA, &gpio);
+	gpio.Alternate = GPIO_AF8_UART4;
+	gpio.Pull = GPIO_NOPULL;
+	gpio.Speed = GPIO_SPEED_FAST;
+	gpio.Pin = GPIO_PIN_11; // RX
+	gpio.Mode = GPIO_MODE_AF_PP;
+	HAL_GPIO_Init(GPIOC, &gpio);
 
-	__HAL_RCC_USART2_CLK_ENABLE();
-	pc_usart.Instance = USART2;
-	pc_usart.Init.BaudRate = 115200;
-	pc_usart.Init.Mode = USART_MODE_TX_RX;
-	pc_usart.Init.Parity = USART_PARITY_NONE;
-	pc_usart.Init.StopBits = USART_STOPBITS_1;;
-	pc_usart.Init.WordLength = USART_WORDLENGTH_8B;
-	HAL_USART_Init(&pc_usart);
+	__HAL_RCC_UART4_CLK_ENABLE();
+	pc_uart.Instance = UART4;
+	pc_uart.Init.BaudRate = 115200;
+	pc_uart.Init.Mode = UART_MODE_TX | UART_MODE_RX;
+	pc_uart.Init.Parity = UART_PARITY_NONE;
+	pc_uart.Init.StopBits = UART_STOPBITS_1;
+	pc_uart.Init.WordLength = UART_WORDLENGTH_8B;
+	pc_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	pc_uart.Init.OverSampling = UART_OVERSAMPLING_8;
+	HAL_UART_Init(&pc_uart);
 
-	NVIC_EnableIRQ(USART2_IRQn);
-	NVIC_SetPriority(USART2_IRQn, 0);
+	__HAL_UART_ENABLE_IT(&pc_uart, UART_IT_RXNE);
+
+	NVIC_EnableIRQ(UART4_IRQn);
+	NVIC_SetPriority(UART4_IRQn, 1);
 }
 
 
@@ -111,7 +118,7 @@ void irq_init(){
 	gpio.Pin = GPIO_PIN_7;
 	gpio.Pull = GPIO_PULLUP;
 	HAL_GPIO_Init(GPIOC, &gpio);
-	NVIC_SetPriority(EXTI9_5_IRQn, 0);
+	NVIC_SetPriority(EXTI9_5_IRQn, 2);
 	NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 	__HAL_RCC_GPIOA_CLK_ENABLE();
@@ -119,7 +126,7 @@ void irq_init(){
 	gpio.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(GPIOA, &gpio);
 
-	NVIC_SetPriority(EXTI0_IRQn, 0);
+	NVIC_SetPriority(EXTI0_IRQn, 2);
 	NVIC_EnableIRQ(EXTI0_IRQn);
 }
 

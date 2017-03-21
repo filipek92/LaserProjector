@@ -10,7 +10,7 @@ int _write(int file, char *data, int len)
       return -1;
    }
    HAL_StatusTypeDef status =
-   HAL_USART_Transmit(&pc_usart, (uint8_t*)data, len, 1000);
+   HAL_UART_Transmit(&pc_uart, (uint8_t*)data, len, 1000);
 
    return (status == HAL_OK ? len : 0);
 }
@@ -23,14 +23,14 @@ int _read(int file, char *data, int len)
         return -1;
     }
 
-    HAL_StatusTypeDef status = HAL_USART_Receive(&pc_usart, (uint8_t *) data, len, 1000);
+    HAL_StatusTypeDef status = HAL_UART_Receive(&pc_uart, (uint8_t *) data, len, 1000);
 
     return status==HAL_OK?len:0;
 }
 
-int _close(int file){return -1;}
-int _lseek(int file, int ptr, int dir){return 0;}
-int _fstat(int file, struct stat *st){return 0;}
+int _close(int file){UNUSED(file); return -1;}
+int _lseek(int file, int ptr, int dir){UNUSED(file); UNUSED(ptr); UNUSED(dir); return 0;}
+int _fstat(int file, struct stat *st){UNUSED(file); UNUSED(st); return 0;}
 
 int _isatty(int file)
 {

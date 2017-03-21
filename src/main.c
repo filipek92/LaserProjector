@@ -16,7 +16,7 @@ DMA_HandleTypeDef dmaspitx;
 SPI_HandleTypeDef print_spi;
 TIM_HandleTypeDef tim;
 TIM_HandleTypeDef tim_spi_clock;
-USART_HandleTypeDef pc_usart;
+UART_HandleTypeDef pc_uart;
 
 volatile uint16_t scan_line = 0;
 
@@ -27,6 +27,8 @@ float bit_frequency;
 
 volatile uint16_t diff;
 volatile uint8_t flag=0;
+
+uint8_t buffer[100];
 
 void main(){
 	init_peripherals();
@@ -40,12 +42,8 @@ void main(){
 	scan_line = 3;
 	while (1){
 		LED_Toggle(LED_G);
-		HAL_Delay(50);
+		HAL_Delay(10);
 		inc_line();
-		if(flag++ % 10 == 0){
-			float arr_reg = 42.0/(line_frequency*BIT_LENGTH)*1000000.0 - 1;
-			printf("Print frequency %d HZ, Bit F: %d Hz, %d\r\n", (int)line_frequency, (int) (line_frequency*BIT_LENGTH), (int)arr_reg);
-		}
 	}
 }
 
@@ -62,11 +60,7 @@ void inc_line(){
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin){
-	printf("IRQ on %d at %lu ms\r\n", POSITION_VAL(pin), HAL_GetTick());
-	if(pin==GPIO_PIN_0){
-		inc_line();
-		printf("Line: %d\r\n", scan_line);
-	}
+	if(pin==GPIO_PIN_0) inc_line();
 	if(pin==GPIO_PIN_7) sendLine();
 }
 
@@ -76,8 +70,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 	if (htim->Instance==TIM2){
 		uint16_t now = __HAL_TIM_GET_COMPARE(&tim, TIM_CHANNEL_4);	//read TIM2 channel 1 capture value
-		//printf("%u\r\n",now);
-		//__HAL_TIM_SET_COUNTER(&tim, 0);	//reset counter after input capture interrupt occurs
 		uint16_t scan_time = (now-last_value); //in us;
 		line_frequency = 1000000.0/scan_time;
 		last_value = now;
@@ -93,5 +85,18 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 		arr[CLEAN_START-1] = 1;
 		HAL_SPI_Transmit(&print_spi, arr, CLEAN_START, 2);
 		sendLine();
+	}
+}
+
+
+void UART_RX_Callback(UART_HandleTypeDef *husart, uint8_t byte){
+	UNUSED(husart);
+	switch(byte){
+	case 'f':
+		printf("Print frequency %d HZ\r\n", (int)line_frequency);
+		break;
+	default:
+		printf("Unknown command \"%c\"!\r\n", byte);
+		break;
 	}
 }
