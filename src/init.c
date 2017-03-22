@@ -4,7 +4,8 @@ void initLineRate();
 void initUsart();
 void irq_init();
 void spi_init();
-void initSPIClock();
+void initMotorClock();
+void init_motorEnable();
 
 void init_peripherals(){
 	irq_init();
@@ -12,7 +13,8 @@ void init_peripherals(){
 	initUsart();
 	LED_Init();
 	initLineRate();
-	initSPIClock();
+	initMotorClock();
+	init_motorEnable();
 }
 
 inline void initLineRate(){
@@ -48,7 +50,7 @@ inline void initLineRate(){
 	HAL_TIM_IC_Start_IT(&tim, TIM_CHANNEL_4);
 }
 
-void initSPIClock(){
+void initMotorClock(){
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	GPIO_InitTypeDef gpio;
 	gpio.Alternate = GPIO_AF2_TIM3;
@@ -59,22 +61,30 @@ void initSPIClock(){
 	HAL_GPIO_Init(GPIOB, &gpio);
 
 	__TIM3_CLK_ENABLE();
-	tim_spi_clock.Instance = TIM3;
-	tim_spi_clock.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
-	tim_spi_clock.Init.CounterMode = TIM_COUNTERMODE_UP;
-	tim_spi_clock.Init.Period = 99;
-	tim_spi_clock.Init.Prescaler = 0;
-	tim_spi_clock.Init.RepetitionCounter = 1;
+	tim_motor.Instance = TIM3;
+	tim_motor.Init.ClockDivision=TIM_CLOCKDIVISION_DIV4;
+	tim_motor.Init.CounterMode = TIM_COUNTERMODE_UP;
+	tim_motor.Init.Period = 9999;
+	tim_motor.Init.Prescaler = 0;
+	tim_motor.Init.RepetitionCounter = 1;
 
 	TIM_OC_InitTypeDef oc;
 	oc.OCMode = TIM_OCMODE_TOGGLE;
 	oc.OCPolarity = TIM_OCPOLARITY_HIGH;
-	HAL_TIM_OC_Init(&tim_spi_clock);
-	HAL_TIM_OC_ConfigChannel(&tim_spi_clock, &oc, TIM_CHANNEL_4);
-	HAL_TIM_OC_Start(&tim_spi_clock, TIM_CHANNEL_4);
+
+	NVIC_SetPriority(TIM3_IRQn, 0);
+	NVIC_EnableIRQ(TIM3_IRQn);
+
+	HAL_TIM_OC_Init(&tim_motor);
+	HAL_TIM_OC_ConfigChannel(&tim_motor, &oc, TIM_CHANNEL_4);
+	HAL_TIM_OC_Start_IT(&tim_motor, TIM_CHANNEL_4);
 }
 
 void initUsart(){
+	term.echo = TERMINAL_ECHO_ENABLE;
+	term.esc_char = 0x1B;
+	term.prompt = "Projektor>>";
+
 	__HAL_RCC_GPIOC_CLK_ENABLE();
 	GPIO_InitTypeDef gpio;
 	gpio.Alternate = GPIO_AF8_UART4;
@@ -170,4 +180,15 @@ void spi_init(){
 
 	NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 	NVIC_SetPriority(DMA2_Stream3_IRQn, 3);
+}
+
+void init_motorEnable(){
+	GPIO_InitTypeDef gpio;
+
+	__GPIOA_CLK_ENABLE();
+	gpio.Mode = GPIO_MODE_OUTPUT_PP;
+	gpio.Pin = GPIO_PIN_1;
+	gpio.Pull = GPIO_NOPULL;
+	gpio.Speed = GPIO_SPEED_FAST;
+	HAL_GPIO_Init(GPIOC, &gpio);
 }

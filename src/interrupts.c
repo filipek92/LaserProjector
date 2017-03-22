@@ -2,8 +2,6 @@
 #include "main.h"
 #include "led.h"
 
-void UART_RX_Callback(UART_HandleTypeDef *husart, uint8_t byte);
-
 void SysTick_Handler(void) {
 	HAL_IncTick();
 	HAL_SYSTICK_IRQHandler();
@@ -28,7 +26,7 @@ void UART4_IRQHandler(void){
 	if((__HAL_UART_GET_FLAG(&pc_uart, UART_FLAG_RXNE) != RESET)
 		&& (__HAL_UART_GET_IT_SOURCE(&pc_uart, UART_IT_RXNE) != RESET))
 	{
-		UART_RX_Callback(&pc_uart, pc_uart.Instance->DR);
+		TERM_ParseByte(&term, pc_uart.Instance->DR);
 	}
 }
 
@@ -42,6 +40,10 @@ void USART3_IRQHandler(void){
 
 void TIM2_IRQHandler(void){
 	HAL_TIM_IRQHandler(&tim);
+}
+
+void TIM3_IRQHandler(void){
+	HAL_TIM_IRQHandler(&tim_motor);
 }
 
 void DMA2_Stream3_IRQHandler(){

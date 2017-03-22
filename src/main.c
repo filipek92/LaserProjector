@@ -11,14 +11,24 @@
 void sendLine();
 void inc_line();
 
+//Commands
+void arglist(int argc, char *argv[]);
+void setline(int argc, char *argv[]);
+void setrotfreq(int argc, char *argv[]);
+void linefreq(int argc, char *argv[]);
+void steptoline(int argc, char *argv[]);
+void motor(int argc, char *argv[]);
 
-DMA_HandleTypeDef dmaspitx;
-SPI_HandleTypeDef print_spi;
-TIM_HandleTypeDef tim;
-TIM_HandleTypeDef tim_spi_clock;
-UART_HandleTypeDef pc_uart;
+
+DMA_HandleTypeDef	dmaspitx;
+SPI_HandleTypeDef	print_spi;
+TIM_HandleTypeDef	tim;
+TIM_HandleTypeDef	tim_motor;
+UART_HandleTypeDef 	pc_uart;
+Terminal_t			term;
 
 volatile uint16_t scan_line = 0;
+volatile int steptoline_cnt = 1000;
 
 HAL_StatusTypeDef status;
 
@@ -32,18 +42,26 @@ uint8_t buffer[100];
 
 void main(){
 	init_peripherals();
+	TERM_AddAsciiCommand(&term, "args", arglist);
+	TERM_AddAsciiCommand(&term, "line", setline);
+	TERM_AddAsciiCommand(&term, "rotf", setrotfreq);
+	TERM_AddAsciiCommand(&term, "linef", linefreq);
+	TERM_AddAsciiCommand(&term, "liner", steptoline);
+	TERM_AddAsciiCommand(&term, "motor", motor);
+
+
 	printf("Projector Boot\r\n");
 	printf("SystemCoreClock: %lu Hz\r\n", SystemCoreClock);
 
 	LED_On(LED_G);
 
 	printf("Ready\r\n");
+	TERM_Prompt(&term);
 	sendLine();
 	scan_line = 3;
 	while (1){
 		LED_Toggle(LED_G);
-		HAL_Delay(10);
-		inc_line();
+		HAL_Delay(50);
 	}
 }
 
@@ -74,9 +92,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 		line_frequency = 1000000.0/scan_time;
 		last_value = now;
 
-		float arr_reg = 42.0/(line_frequency*BIT_LENGTH)*1000000.0 - 1;
-		tim_spi_clock.Instance->ARR = arr_reg;
-
 		memset(arr, 0xFF, 20);
 #if CLEAN_START > 20
 		memset(arr+20, 0, CLEAN_START-20);
@@ -88,15 +103,48 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 	}
 }
 
+void arglist(int argc, char *argv[]){
+	printf("ArgList:\r\n");
+	for(int i = 0; i < argc; i++){
+		printf(" %d. \"%s\"\r\n", i, argv[i]);
+	}
+}
 
-void UART_RX_Callback(UART_HandleTypeDef *husart, uint8_t byte){
-	UNUSED(husart);
-	switch(byte){
-	case 'f':
-		printf("Print frequency %d HZ\r\n", (int)line_frequency);
-		break;
-	default:
-		printf("Unknown command \"%c\"!\r\n", byte);
-		break;
+void setline(int argc, char *argv[]){
+	if(argc==2) scan_line = atoi(argv[1]);
+	printf("Scanline %d\r\n", scan_line);
+}
+
+void setrotfreq(int argc, char *argv[]){
+	if(argc==2){
+		uint32_t arr_reg = (42000000.0/4)/atof(argv[1]) - 1;
+		tim_motor.Instance->ARR = arr_reg;
+	}
+	float freq = (42000000.0/4)/(tim_motor.Instance->ARR + 1);
+	printf("Motor ARR=%lu\r\n", tim_motor.Instance->ARR);
+	printf("Motor frequency %lu Hz\r\n", (uint32_t) freq);
+}
+
+void linefreq(int argc, char *argv[]){
+	UNUSED(argc); UNUSED(argv);
+	printf("Scan frequency %lu Hz\r\n", (uint32_t) line_frequency);
+}
+
+void steptoline(int argc, char *argv[]){
+	if(argc==2) steptoline_cnt = atoi(argv[1]);
+	printf("Step to line ratio %d steps/line\r\n", steptoline_cnt);
+}
+
+void motor(int argc, char *argv[]){
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, (argc > 1)?GPIO_PIN_SET:GPIO_PIN_RESET);
+}
+
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim){
+	static int cnt=0;
+	if(htim == &tim_motor){
+		if(cnt++ % steptoline_cnt == 0){
+			LED_Toggle(LED_B);
+			inc_line();
+		}
 	}
 }

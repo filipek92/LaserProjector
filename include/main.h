@@ -6,11 +6,13 @@
 #include <string.h>
 #include "diag/Trace.h"
 #include "stm32f4xx.h"
+#include "terminal.h"
 
-extern SPI_HandleTypeDef print_spi;
-extern TIM_HandleTypeDef tim;
-extern TIM_HandleTypeDef tim_spi_clock;
-extern UART_HandleTypeDef pc_uart;
-extern DMA_HandleTypeDef dmaspitx;
+extern SPI_HandleTypeDef	print_spi;
+extern TIM_HandleTypeDef	tim;
+extern TIM_HandleTypeDef	tim_motor;
+extern UART_HandleTypeDef	pc_uart;
+extern DMA_HandleTypeDef	dmaspitx;
+extern Terminal_t			term;
 
 #endif
