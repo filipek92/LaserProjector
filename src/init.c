@@ -62,10 +62,10 @@ void initMotorClock(){
 
 	__TIM3_CLK_ENABLE();
 	tim_motor.Instance = TIM3;
-	tim_motor.Init.ClockDivision=TIM_CLOCKDIVISION_DIV4;
+	tim_motor.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
 	tim_motor.Init.CounterMode = TIM_COUNTERMODE_UP;
-	tim_motor.Init.Period = 9999;
-	tim_motor.Init.Prescaler = 0;
+	tim_motor.Init.Period = 41999;
+	tim_motor.Init.Prescaler = 99;
 	tim_motor.Init.RepetitionCounter = 1;
 
 	TIM_OC_InitTypeDef oc;
@@ -103,7 +103,7 @@ void initUsart(){
 
 	__HAL_RCC_UART4_CLK_ENABLE();
 	pc_uart.Instance = UART4;
-	pc_uart.Init.BaudRate = 115200;
+	pc_uart.Init.BaudRate = 921600;
 	pc_uart.Init.Mode = UART_MODE_TX | UART_MODE_RX;
 	pc_uart.Init.Parity = UART_PARITY_NONE;
 	pc_uart.Init.StopBits = UART_STOPBITS_1;
@@ -187,7 +187,7 @@ void init_motorEnable(){
 
 	__GPIOA_CLK_ENABLE();
 	gpio.Mode = GPIO_MODE_OUTPUT_PP;
-	gpio.Pin = GPIO_PIN_1;
+	gpio.Pin = GPIO_PIN_1 | GPIO_PIN_0;
 	gpio.Pull = GPIO_NOPULL;
 	gpio.Speed = GPIO_SPEED_FAST;
 	HAL_GPIO_Init(GPIOC, &gpio);

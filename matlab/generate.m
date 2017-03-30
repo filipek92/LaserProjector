@@ -1,5 +1,5 @@
 % This script need array called 'image'
-imsize = [480,480];
+imsize = [480,400];
 file = '..\include\img.h';
 
 assert(mod(imsize(1), 8)==0)
@@ -15,7 +15,7 @@ imshow(img)
 data = zeros(1, size(img,2)*size(img,1)/8, 'uint8');
 %%
 for indx = 1:size(img,2)
-    line = img(:, indx);
+    line = img(end:-1:1, indx);
     for indy = 1:8:length(line)
         part = line(indy:indy+7);
         ind = (indx-1)*size(img,1)/8 + ((indy-1)/8) +1;
@@ -37,3 +37,33 @@ fwrite(f, '};');
 fclose(f);
 %%
 open(file)
+
+%%
+s = serial('COM5', 'Baudrate', 115200*8);
+fopen(s);
+%%
+tic
+if s.BytesAvailable
+    fread(s, s.BytesAvailable)
+end
+fwrite(s, 10);
+pause(0.1);
+if s.BytesAvailable
+    char(fread(s, s.BytesAvailable)')
+end
+
+command = uint8(sprintf('transfer %d\n', length(data)));
+fwrite(s, command);
+for i = 1:100:length(data)
+    fwrite(s, data(i:i+99))
+end
+pause(0.1);
+if s.BytesAvailable
+    char(fread(s, s.BytesAvailable)')
+end
+toc
+%%
+devs = instrfindall;
+if ~isempty(devs)
+    fclose(instrfindall);
+end
