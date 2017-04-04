@@ -2,12 +2,16 @@
 #include "led.h"
 #include "init.h"
 
+#define IMG_BUFFER 960*1000/8
 #include "img.h"
 
 #define Y_SIZEB (y_size/8)
 #define CLEAN_START 40 // PreImage data
-#define CLEAN_END	30 // AfterImage data
-#define BIT_LENGTH	Y_SIZE+((CLEAN_START+CLEAN_END)*8)
+
+#define DMA_PREAMBLE	0
+#define DMA_DATA		1
+
+volatile int dma_state = DMA_PREAMBLE;
 
 void sendLine();
 void inc_line();
@@ -24,6 +28,9 @@ int prescaler(int argc, char *argv[]);
 int transfer(int argc, char *argv[]);
 int dump(int argc, char *argv[]);
 int laser(int argc, char *argv[]);
+int crc(int argc, char *argv[]);
+int buffer(int argc, char *argv[]);
+int echo(int argc, char *argv[]);
 
 DMA_HandleTypeDef	dmaspitx;
 SPI_HandleTypeDef	print_spi;
@@ -48,6 +55,8 @@ volatile uint16_t y_size = Y_SIZE;
 
 volatile uint8_t laser_on = 1;
 
+uint8_t preamble[CLEAN_START];
+
 void main(){
 	init_peripherals();
 	TERM_AddCommand(&term, "args", arglist);
@@ -62,7 +71,11 @@ void main(){
 	TERM_AddCommand(&term, "dump", dump);
 	TERM_AddCommand(&term, "bindump", dump);
 	TERM_AddCommand(&term, "laser", laser);
+	TERM_AddCommand(&term, "crc", crc);
+	TERM_AddCommand(&term, "buffer", buffer);
+	TERM_AddCommand(&term, "echo", echo);
 
+	memset(preamble, 0xF0, CLEAN_START);
 
 	printf("Projector Boot\r\n");
 	printf("SystemCoreClock: %lu Hz\r\n", SystemCoreClock);
@@ -102,7 +115,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin){
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 	static uint16_t last_value;
-	static uint8_t arr[50];
 
 	if (htim->Instance==TIM2){
 		uint16_t now = __HAL_TIM_GET_COMPARE(&tim, TIM_CHANNEL_4);	//read TIM2 channel 1 capture value
@@ -111,15 +123,20 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 		last_value = now;
 
 		if(laser_on){
-			memset(arr, 0xFF, 20);
-#if CLEAN_START > 20
-			memset(arr+20, 0, CLEAN_START-20);
-#endif
-			arr[CLEAN_START-2] = 0x33;
-			arr[CLEAN_START-1] = 1;
-			HAL_SPI_Transmit(&print_spi, arr, CLEAN_START, 2);
-			sendLine();
+			dma_state = DMA_PREAMBLE;
+			HAL_SPI_Transmit_DMA(&print_spi, preamble, CLEAN_START);
 		}
+	}
+}
+
+void DMA2_Stream3_IRQHandler(){
+	static uint8_t FULL = 0xFF;
+	HAL_DMA_IRQHandler(&dmaspitx);
+	if(dma_state==DMA_PREAMBLE){
+		dma_state = DMA_DATA;
+		sendLine();
+	}else{
+		HAL_SPI_Transmit(&print_spi, &FULL, 1, 1); //Send Dummy 0xFF, to force output to 1 for synchro impuls
 	}
 }
 
@@ -240,9 +257,23 @@ int dump(int argc, char *argv[]){
 	}
 	printf("Dumping image memory from %d (physical address 0x%x)\r\n", start, (unsigned int) (start+img));
 	for(unsigned int i=0; i<len; i++){
-		printf("0x%08x = 0x%02x\r\n", i+start, img[i+start]);
+		printf("0x%08x (0x%08x) = 0x%02x\r\n", i+start, img+i+start, img[i+start]);
 	}
 	return 0;
+}
+
+int crc(int argc, char *argv[]){
+	unsigned int start = 0;
+	unsigned int len = IMG_BUFFER;
+	if(argc > 1) len = atoi(argv[1]);
+	if(argc > 2) start = atoi(argv[2]);
+
+	if(start >= IMG_BUFFER) return -1;
+	if((len+start) > IMG_BUFFER) return -2;
+
+	//printf("CRC is %u\r\n", xcrc32(img+start, len, 0xffffffff));
+	printf("Unsuported\r\n");
+	return 1;
 }
 
 int resolution(int argc, char *argv[]){
@@ -270,6 +301,28 @@ int resolution(int argc, char *argv[]){
 int laser(int argc, char *argv[]){
 	UNUSED(argc); UNUSED(argv);
 	printf("Laser is %s\r\n", laser_on?"ON":"OFF");
+	return 0;
+}
+
+int buffer(int argc, char *argv[]){
+	UNUSED(argc); UNUSED(argv);
+	printf("Buffer size is %d bytes (%d pixels)\r\n", IMG_BUFFER, IMG_BUFFER*8);
+	return 0;
+}
+
+int echo(int argc, char *argv[]){
+	if(argc == 2){
+		if(strcasecmp("on", argv[1]) == 0){
+			term.echo = 1;
+			term.prompt = "Projektor #";
+		}else if(strcasecmp("off", argv[1]) == 0){
+			term.echo = 0;
+			term.prompt = 0;
+		}else{
+			return -1;
+		}
+	}
+	printf("Echo is %s.\r\n", term.echo?"ENABLED":"DISABLED");
 	return 0;
 }
 

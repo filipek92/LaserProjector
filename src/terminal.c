@@ -46,6 +46,12 @@ int TERM_Shortcut(Terminal_t *term, uint16_t shortcut){
 		return TERM_TabHelp(term);
 	}
 
+	if(shortcut == 17){
+		term->echo = 0;
+		term->prompt = 0;
+		return 1;
+	}
+
 	if(shortcut>0 && shortcut<27){
 		printf("\r\nPressed CTRL+%c\r\n", shortcut+'A'-1);
 		return 1;
@@ -170,6 +176,7 @@ int TERM_ParseByte(Terminal_t *term, char byte){
 
 void TERM_PrintBuffer(Terminal_t *term){
 	term->buffer[term->pointer] = 0;
+	if(!term->echo) return;
 	write(1, term->buffer, strlen(term->buffer));
 }
 

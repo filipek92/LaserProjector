@@ -64,7 +64,7 @@ void initMotorClock(){
 	tim_motor.Instance = TIM3;
 	tim_motor.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
 	tim_motor.Init.CounterMode = TIM_COUNTERMODE_UP;
-	tim_motor.Init.Period = 41999;
+	tim_motor.Init.Period = 419;
 	tim_motor.Init.Prescaler = 99;
 	tim_motor.Init.RepetitionCounter = 1;
 
@@ -103,7 +103,7 @@ void initUsart(){
 
 	__HAL_RCC_UART4_CLK_ENABLE();
 	pc_uart.Instance = UART4;
-	pc_uart.Init.BaudRate = 921600;
+	pc_uart.Init.BaudRate = 57600;//460800;//921600;
 	pc_uart.Init.Mode = UART_MODE_TX | UART_MODE_RX;
 	pc_uart.Init.Parity = UART_PARITY_NONE;
 	pc_uart.Init.StopBits = UART_STOPBITS_1;
