@@ -8,7 +8,7 @@ if ~exist('image', 'var')
     load('image')
 end
 
-img = imresize(image', imsize)>127;
+img = imresize(image, imsize)>127;
 imshow(img)
 clear data
 %%
@@ -37,36 +37,46 @@ fclose(f);
 open(file)
 
 %%
-s = serial('COM5', 'Baudrate', 57600);
+s = serial('COM5', 'Baudrate', 921600);
 s.Terminator = 'CR/LF';
 fopen(s);
 fwrite(s, 17);
 
 %%
 tic
+fwrite(s, 17);
 while s.BytesAvailable
-    fread(s, s.BytesAvailable);
+    fread(s, s.BytesAvailable); 
 end
-fprintf(s, 'echo\n');
-pause(0.1);
-if s.BytesAvailable
-    rep = char(fread(s, s.BytesAvailable)');
-    rep = rep(1:end-2);
-end
-
-command = sprintf('transfer %d', length(data));
+fprintf('\nStarting transfer\n');
+command = sprintf('transfer %d\n', length(data));%length(data));
 fwrite(s, command);
-for i = 1:100:length(data)
-    fwrite(s, data(i:i+99))
-end
-pause(0.1);
-if s.BytesAvailable
+pause(0.05);
+while s.BytesAvailable
     rep = char(fread(s, s.BytesAvailable)');
     disp(rep(1:end-2));
 end
+for i = 1:100:length(data)
+    fwrite(s, data(i:i+99));
+end
+pause(0.1);
+while s.BytesAvailable
+    rep = char(fread(s, s.BytesAvailable)');
+    disp(rep(rep>20));
+end
 toc
+fprintf('Done\n');
+cmd = sprintf('resolution %d %d\n', imsize(2), imsize(1));
+fwrite(s, cmd);
+pause(0.1);
+while s.BytesAvailable
+    rep = char(fread(s, s.BytesAvailable)');
+    disp(rep(rep>20));
+end
 %%
 devs = instrfindall;
 if ~isempty(devs)
     fclose(instrfindall);
 end
+
+

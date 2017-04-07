@@ -6,6 +6,7 @@ void irq_init();
 void spi_init();
 void initMotorClock();
 void init_motorEnable();
+void init_CRC();
 
 void init_peripherals(){
 	irq_init();
@@ -15,6 +16,7 @@ void init_peripherals(){
 	initLineRate();
 	initMotorClock();
 	init_motorEnable();
+	init_CRC();
 }
 
 inline void initLineRate(){
@@ -64,8 +66,8 @@ void initMotorClock(){
 	tim_motor.Instance = TIM3;
 	tim_motor.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
 	tim_motor.Init.CounterMode = TIM_COUNTERMODE_UP;
-	tim_motor.Init.Period = 419;
-	tim_motor.Init.Prescaler = 99;
+	tim_motor.Init.Period = 13124;
+	tim_motor.Init.Prescaler = 0;
 	tim_motor.Init.RepetitionCounter = 1;
 
 	TIM_OC_InitTypeDef oc;
@@ -103,7 +105,7 @@ void initUsart(){
 
 	__HAL_RCC_UART4_CLK_ENABLE();
 	pc_uart.Instance = UART4;
-	pc_uart.Init.BaudRate = 57600;//460800;//921600;
+	pc_uart.Init.BaudRate = 921600;
 	pc_uart.Init.Mode = UART_MODE_TX | UART_MODE_RX;
 	pc_uart.Init.Parity = UART_PARITY_NONE;
 	pc_uart.Init.StopBits = UART_STOPBITS_1;
@@ -111,6 +113,23 @@ void initUsart(){
 	pc_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	pc_uart.Init.OverSampling = UART_OVERSAMPLING_8;
 	HAL_UART_Init(&pc_uart);
+
+	__HAL_RCC_DMA1_CLK_ENABLE();
+	dmauartrx.Init.Channel = DMA_CHANNEL_4;
+	dmauartrx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+	dmauartrx.Init.PeriphInc = DMA_PINC_DISABLE;
+	dmauartrx.Init.MemInc = DMA_MINC_ENABLE;
+	dmauartrx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+	dmauartrx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+	dmauartrx.Init.Mode = DMA_NORMAL;
+	dmauartrx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+	dmauartrx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+	dmauartrx.Instance = DMA1_Stream2;
+	HAL_DMA_Init(&dmauartrx);
+	__HAL_LINKDMA(&pc_uart,hdmarx,dmauartrx);
+
+	NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+	NVIC_SetPriority(DMA1_Stream2_IRQn, 3);
 
 	__HAL_UART_ENABLE_IT(&pc_uart, UART_IT_RXNE);
 
@@ -191,4 +210,10 @@ void init_motorEnable(){
 	gpio.Pull = GPIO_NOPULL;
 	gpio.Speed = GPIO_SPEED_FAST;
 	HAL_GPIO_Init(GPIOC, &gpio);
+}
+
+void init_CRC(){
+	__CRC_CLK_ENABLE();
+	hcrc.Instance = CRC;
+	HAL_CRC_Init(&hcrc);
 }

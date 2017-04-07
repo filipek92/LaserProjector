@@ -45,3 +45,7 @@ void TIM2_IRQHandler(void){
 void TIM3_IRQHandler(void){
 	HAL_TIM_IRQHandler(&tim_motor);
 }
+
+void DMA1_Stream2_IRQHandler(){
+	HAL_DMA_IRQHandler(&dmauartrx);
+}

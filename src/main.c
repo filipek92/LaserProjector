@@ -32,12 +32,14 @@ int crc(int argc, char *argv[]);
 int buffer(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
 
+DMA_HandleTypeDef	dmauartrx;
 DMA_HandleTypeDef	dmaspitx;
 SPI_HandleTypeDef	print_spi;
 TIM_HandleTypeDef	tim;
 TIM_HandleTypeDef	tim_motor;
 UART_HandleTypeDef 	pc_uart;
 Terminal_t			term;
+CRC_HandleTypeDef	hcrc;
 
 volatile uint16_t scan_line = 0;
 volatile int steptoline_cnt = 8;
@@ -227,6 +229,12 @@ int motor(int argc, char *argv[]){
 	return 0;
 }
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	printf("\r\nTransfer done\r\n");
+	TERM_Prompt(&term);
+	TERM_PrintBuffer(&term);
+}
+
 int transfer(int argc, char *argv[]){
 	int start = 0;
 	int len = 1;
@@ -237,8 +245,12 @@ int transfer(int argc, char *argv[]){
 	if(start >= IMG_BUFFER) return -1;
 	if((len+start) > IMG_BUFFER) return -2;
 
-	HAL_StatusTypeDef status = HAL_UART_Receive(&pc_uart, img+start, len, 1000);
-	printf("Transfer %s\r\n", status==HAL_OK?"OK":"ERROR");
+	HAL_StatusTypeDef status = HAL_UART_Receive_DMA(&pc_uart, img+start, len);
+	if(status==HAL_OK){
+		printf("Ready for transfer %d bytes\r\n", len);
+	}else{
+		printf("Error, status %d\r\n", status);
+	}
 	return status;
 }
 
@@ -262,6 +274,21 @@ int dump(int argc, char *argv[]){
 	return 0;
 }
 
+uint32_t crc32(uint8_t *addr, int len, uint32_t crc) {
+   int i, j;
+   uint32_t byte, mask;
+
+   for(i = 0; i<len; i++){
+      byte = addr[i];            // Get next byte.
+      crc = crc ^ byte;
+      for (j = 7; j >= 0; j--) {    // Do eight times.
+         mask = -(crc & 1);
+         crc = (crc >> 1) ^ (0xEDB88320 & mask);
+      }
+   }
+   return ~crc;
+}
+
 int crc(int argc, char *argv[]){
 	unsigned int start = 0;
 	unsigned int len = IMG_BUFFER;
@@ -271,9 +298,11 @@ int crc(int argc, char *argv[]){
 	if(start >= IMG_BUFFER) return -1;
 	if((len+start) > IMG_BUFFER) return -2;
 
-	//printf("CRC is %u\r\n", xcrc32(img+start, len, 0xffffffff));
-	printf("Unsuported\r\n");
-	return 1;
+	//uint32_t crc = HAL_CRC_Calculate(&hcrc, img+start, len);
+	uint32_t crc = crc32(img+start, len, 0xFFFFFFFF);
+
+	printf("CRC is 0x%08X\r\n", crc);
+	return crc;
 }
 
 int resolution(int argc, char *argv[]){
