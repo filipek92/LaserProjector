@@ -16,7 +16,7 @@ void init_peripherals(){
 	initLineRate();
 	initMotorClock();
 	init_motorEnable();
-	init_CRC();
+	//init_CRC();
 }
 
 inline void initLineRate(){

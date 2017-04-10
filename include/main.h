@@ -7,6 +7,7 @@
 #include "diag/Trace.h"
 #include "stm32f4xx.h"
 #include "terminal.h"
+#include "STM32F4_UniqueID.h"
 
 extern SPI_HandleTypeDef	print_spi;
 extern TIM_HandleTypeDef	tim;

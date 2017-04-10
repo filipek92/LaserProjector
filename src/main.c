@@ -6,7 +6,7 @@
 #include "img.h"
 
 #define Y_SIZEB (y_size/8)
-#define CLEAN_START 40 // PreImage data
+#define CLEAN_START 45 // PreImage data
 
 #define DMA_PREAMBLE	0
 #define DMA_DATA		1
@@ -31,6 +31,7 @@ int laser(int argc, char *argv[]);
 int crc(int argc, char *argv[]);
 int buffer(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
+int id(int argc, char *argv[]);
 
 DMA_HandleTypeDef	dmauartrx;
 DMA_HandleTypeDef	dmaspitx;
@@ -76,8 +77,9 @@ void main(){
 	TERM_AddCommand(&term, "crc", crc);
 	TERM_AddCommand(&term, "buffer", buffer);
 	TERM_AddCommand(&term, "echo", echo);
+	TERM_AddCommand(&term, "id", id);
 
-	memset(preamble, 0xF0, CLEAN_START);
+	memset(preamble, 0x00, CLEAN_START);
 
 	printf("Projector Boot\r\n");
 	printf("SystemCoreClock: %lu Hz\r\n", SystemCoreClock);
@@ -131,12 +133,13 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 	}
 }
 
-void DMA2_Stream3_IRQHandler(){
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
+	UNUSED(hspi);
 	static uint8_t FULL = 0xFF;
-	HAL_DMA_IRQHandler(&dmaspitx);
 	if(dma_state==DMA_PREAMBLE){
 		dma_state = DMA_DATA;
-		sendLine();
+		uint8_t *data = (uint8_t *) img+(scan_line*Y_SIZEB);
+		HAL_SPI_Transmit_DMA(&print_spi, data, Y_SIZEB);
 	}else{
 		HAL_SPI_Transmit(&print_spi, &FULL, 1, 1); //Send Dummy 0xFF, to force output to 1 for synchro impuls
 	}
@@ -205,6 +208,15 @@ int prescaler(int argc, char *argv[]){
 	printf("Motor frequency %lu Hz\r\n", (uint32_t) freq);
 	printf("Min frequency %lu Hz, Max frequency %lu Hz\r\n", (uint32_t) minfreq, (uint32_t) maxfreq);
 	return retcode;
+}
+
+int id(int argc, char *argv[]){
+	printf("Unique ID is %X", UNIQUE_ID[0]);
+	for(int i=1; i<12; i++){
+		printf("-%X", UNIQUE_ID[i]);
+	}
+	printf("\r\n");
+	return 0;
 }
 
 int linefreq(int argc, char *argv[]){
