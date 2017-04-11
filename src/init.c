@@ -9,6 +9,7 @@ void init_motorEnable();
 void init_CRC();
 
 void init_peripherals(){
+	NVIC_SetPriority(SysTick_IRQn, 0);
 	irq_init();
 	spi_init();
 	initUsart();
@@ -134,7 +135,7 @@ void initUsart(){
 	__HAL_UART_ENABLE_IT(&pc_uart, UART_IT_RXNE);
 
 	NVIC_EnableIRQ(UART4_IRQn);
-	NVIC_SetPriority(UART4_IRQn, 1);
+	NVIC_SetPriority(UART4_IRQn, 3);
 }
 
 
@@ -198,7 +199,7 @@ void spi_init(){
 	__HAL_LINKDMA(&print_spi,hdmatx,dmaspitx);
 
 	NVIC_EnableIRQ(DMA2_Stream3_IRQn);
-	NVIC_SetPriority(DMA2_Stream3_IRQn, 3);
+	NVIC_SetPriority(DMA2_Stream3_IRQn, 2);
 }
 
 void init_motorEnable(){

@@ -1,6 +1,5 @@
 #include "terminal.h"
 
-void TERM_PrintBuffer(Terminal_t *term);
 void TERM_EscapeSequence(Terminal_t *term, uint8_t byte);
 int TERM_Shortcut(Terminal_t *term, uint16_t shortcut);
 int TERM_TabHelp(Terminal_t *term);

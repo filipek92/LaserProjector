@@ -6,7 +6,8 @@
 #include "img.h"
 
 #define Y_SIZEB (y_size/8)
-#define CLEAN_START 45 // PreImage data
+#define DEFUALT_PREAMBLE 	40 // PreImage data
+#define PREAMBLE_MAX 		200
 
 #define DMA_PREAMBLE	0
 #define DMA_DATA		1
@@ -32,6 +33,8 @@ int crc(int argc, char *argv[]);
 int buffer(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
 int id(int argc, char *argv[]);
+int preamble(int argc, char *argv[]);
+int off(int argc, char *argv[]);
 
 DMA_HandleTypeDef	dmauartrx;
 DMA_HandleTypeDef	dmaspitx;
@@ -58,7 +61,8 @@ volatile uint16_t y_size = Y_SIZE;
 
 volatile uint8_t laser_on = 1;
 
-uint8_t preamble[CLEAN_START];
+uint8_t preamble_data[PREAMBLE_MAX];
+uint8_t preamble_len=DEFUALT_PREAMBLE;
 
 void main(){
 	init_peripherals();
@@ -78,8 +82,10 @@ void main(){
 	TERM_AddCommand(&term, "buffer", buffer);
 	TERM_AddCommand(&term, "echo", echo);
 	TERM_AddCommand(&term, "id", id);
+	TERM_AddCommand(&term, "preamble", preamble);
+	TERM_AddCommand(&term, "off", off);
 
-	memset(preamble, 0x00, CLEAN_START);
+	memset(preamble_data, 0x00, DEFUALT_PREAMBLE);
 
 	printf("Projector Boot\r\n");
 	printf("SystemCoreClock: %lu Hz\r\n", SystemCoreClock);
@@ -101,11 +107,7 @@ void main(){
 
 void sendLine(){
 	uint8_t *data = (uint8_t *) img+(scan_line*Y_SIZEB);
-
-	LED_Toggle(LED_R);
-	LED_On(LED_O);
 	HAL_SPI_Transmit_DMA(&print_spi, data, Y_SIZEB);
-	LED_Off(LED_O);
 }
 
 void inc_line(){
@@ -113,7 +115,10 @@ void inc_line(){
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin){
-	if(pin==GPIO_PIN_0) inc_line();
+	if(pin==GPIO_PIN_0){
+		laser_on = !laser_on;
+		laser(0, NULL);
+	}
 	if(pin==GPIO_PIN_7) sendLine();
 }
 
@@ -128,20 +133,20 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 		if(laser_on){
 			dma_state = DMA_PREAMBLE;
-			HAL_SPI_Transmit_DMA(&print_spi, preamble, CLEAN_START);
+			HAL_SPI_Transmit_DMA(&print_spi, preamble_data, preamble_len);
 		}
 	}
 }
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
 	UNUSED(hspi);
-	static uint8_t FULL = 0xFF;
 	if(dma_state==DMA_PREAMBLE){
 		dma_state = DMA_DATA;
 		uint8_t *data = (uint8_t *) img+(scan_line*Y_SIZEB);
 		HAL_SPI_Transmit_DMA(&print_spi, data, Y_SIZEB);
 	}else{
-		HAL_SPI_Transmit(&print_spi, &FULL, 1, 1); //Send Dummy 0xFF, to force output to 1 for synchro impuls
+		uint8_t after = /*laser_on?*/0xFF/*:0x00*/;
+		HAL_SPI_Transmit(&print_spi, &after, 1, 1); //Send Dummy 0xFF, to force output to 1 for synchro impuls
 	}
 }
 
@@ -211,6 +216,7 @@ int prescaler(int argc, char *argv[]){
 }
 
 int id(int argc, char *argv[]){
+	UNUSED(argc); UNUSED(argv);
 	printf("Unique ID is %X", UNIQUE_ID[0]);
 	for(int i=1; i<12; i++){
 		printf("-%X", UNIQUE_ID[i]);
@@ -242,6 +248,7 @@ int motor(int argc, char *argv[]){
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	UNUSED(huart);
 	printf("\r\nTransfer done\r\n");
 	TERM_Prompt(&term);
 	TERM_PrintBuffer(&term);
@@ -281,7 +288,7 @@ int dump(int argc, char *argv[]){
 	}
 	printf("Dumping image memory from %d (physical address 0x%x)\r\n", start, (unsigned int) (start+img));
 	for(unsigned int i=0; i<len; i++){
-		printf("0x%08x (0x%08x) = 0x%02x\r\n", i+start, img+i+start, img[i+start]);
+		printf("0x%08x (0x%08x) = 0x%02x\r\n", i+start,(unsigned int) (img+i+start),(unsigned int) img[i+start]);
 	}
 	return 0;
 }
@@ -313,7 +320,7 @@ int crc(int argc, char *argv[]){
 	//uint32_t crc = HAL_CRC_Calculate(&hcrc, img+start, len);
 	uint32_t crc = crc32(img+start, len, 0xFFFFFFFF);
 
-	printf("CRC is 0x%08X\r\n", crc);
+	printf("CRC is 0x%08X\r\n", (unsigned int) crc);
 	return crc;
 }
 
@@ -340,8 +347,33 @@ int resolution(int argc, char *argv[]){
 }
 
 int laser(int argc, char *argv[]){
-	UNUSED(argc); UNUSED(argv);
+	if(argc > 2){
+		printf("Wrong arguments");
+		return -1;
+	}
+	if(argc == 2) laser_on = strcasecmp("on", argv[1])==0;
+
+	GPIO_InitTypeDef gpio;
+	gpio.Alternate = laser_on?GPIO_AF5_SPI1:0;
+	gpio.Mode = laser_on?GPIO_MODE_AF_PP:GPIO_MODE_OUTPUT_PP;
+	gpio.Pin = GPIO_PIN_7;
+	gpio.Pull = GPIO_NOPULL;
+	gpio.Speed = GPIO_SPEED_FAST;
+	HAL_GPIO_Init(GPIOA, &gpio);
+
+	laser_on?LED_On(LED_R):LED_Off(LED_R);
+
 	printf("Laser is %s\r\n", laser_on?"ON":"OFF");
+	return 0;
+}
+
+int off(int argc, char *argv[]){
+	UNUSED(argc);
+	UNUSED(argv);
+	char *a[] = {NULL, "off"};
+	laser(2, a);
+	motor(2, a);
+	rotation(2, a);
 	return 0;
 }
 
@@ -364,6 +396,17 @@ int echo(int argc, char *argv[]){
 		}
 	}
 	printf("Echo is %s.\r\n", term.echo?"ENABLED":"DISABLED");
+	return 0;
+}
+
+int preamble(int argc, char *argv[]){
+	if(argc > 3) return -1;
+	if(argc > 1){
+		uint8_t tmp = atoi(argv[1]);
+		preamble_len = tmp<PREAMBLE_MAX?tmp:PREAMBLE_MAX;
+	}
+	if(argc > 2) memset(preamble_data, atoi(argv[2]), preamble_len);
+	printf("Preamble len will be %d\r\n", preamble_len);
 	return 0;
 }
 

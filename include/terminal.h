@@ -47,7 +47,7 @@ int TERM_ParseByte(Terminal_t *term, char byte);
 void TERM_ParseLine(Terminal_t *term, char line[]);
 int TERM_CallCommand(Terminal_t *term, const char name[], int argc, char **argv);
 void TERM_Prompt(Terminal_t *term);
-
+void TERM_PrintBuffer(Terminal_t *term);
 void TERM_AddCommand(Terminal_t *term, char *name, int (*callback)(int argc, char **argv));
 
 void TERM_Help(Terminal_t *term);
